@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import type { TocItem } from "./types";
 import {
   cn,
-  createHeadingSlugger,
+  createHeadingId,
   extractTableOfContents,
   textFromReactChildren,
 } from "./utils";
@@ -128,17 +128,17 @@ export function MarkdownArticleViewer({
     );
   }
 
-  const renderSlug = createHeadingSlugger();
-
   function Heading({
     level,
     children,
+    node,
   }: {
     level: 1 | 2 | 3 | 4;
     children: React.ReactNode;
+    node?: { position?: { start?: { line?: number } } };
   }) {
     const text = textFromReactChildren(children);
-    const id = renderSlug(text);
+    const id = createHeadingId(text, node?.position?.start?.line);
     const className = cn(
       "scroll-mt-28 font-bold tracking-normal text-zinc-50",
       level === 1 && "mb-5 mt-0 text-3xl leading-tight sm:text-4xl",
@@ -185,10 +185,26 @@ export function MarkdownArticleViewer({
     <article className="mx-auto max-w-3xl px-5 py-8 sm:px-8 lg:px-10">
       <ReactMarkdown
         components={{
-          h1: ({ children }) => <Heading level={1}>{children}</Heading>,
-          h2: ({ children }) => <Heading level={2}>{children}</Heading>,
-          h3: ({ children }) => <Heading level={3}>{children}</Heading>,
-          h4: ({ children }) => <Heading level={4}>{children}</Heading>,
+          h1: ({ children, node }) => (
+            <Heading level={1} node={node}>
+              {children}
+            </Heading>
+          ),
+          h2: ({ children, node }) => (
+            <Heading level={2} node={node}>
+              {children}
+            </Heading>
+          ),
+          h3: ({ children, node }) => (
+            <Heading level={3} node={node}>
+              {children}
+            </Heading>
+          ),
+          h4: ({ children, node }) => (
+            <Heading level={4} node={node}>
+              {children}
+            </Heading>
+          ),
           p: ({ children }) => (
             <p className="my-5 text-base leading-8 text-zinc-200">
               {citationChildren(children)}

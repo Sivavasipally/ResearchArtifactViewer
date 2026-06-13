@@ -4,10 +4,40 @@ Production-ready React 18, TypeScript, and Tailwind CSS component for viewing re
 
 The component supports Markdown articles, PDFs, DOCX previews, prompt history timelines, citation/source browsing, download actions, fullscreen mode, and progress/status display. It has no backend dependency. All content is passed through props.
 
+## Quick Start
+
+This repository is now a runnable Vite React app using the `ResearchArtifactViewer` component as the first screen.
+
+```bash
+npm install
+npm run dev
+```
+
+Open:
+
+```txt
+http://127.0.0.1:5173/
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
 ## Folder Structure
 
 ```txt
+index.html
+package.json
+postcss.config.js
+tailwind.config.js
+tsconfig.json
+vite.config.ts
 src/
+  App.tsx
+  index.css
+  main.tsx
   components/
     ResearchArtifactViewer/
       ArtifactProgressBar.tsx
@@ -44,9 +74,17 @@ src/
 
 ## Install Dependencies
 
+Dependencies are already declared in `package.json`. For a fresh checkout, run:
+
+```bash
+npm install
+```
+
+The equivalent manual install commands are:
+
 ```bash
 npm install react@18 react-dom@18 lucide-react react-markdown remark-gfm pdfjs-dist mammoth dompurify
-npm install -D typescript @types/react @types/react-dom tailwindcss postcss autoprefixer
+npm install -D @vitejs/plugin-react vite typescript @types/react @types/react-dom tailwindcss postcss autoprefixer
 ```
 
 If your app does not already have Tailwind CSS installed:
@@ -80,9 +118,36 @@ Add Tailwind directives to your global CSS file, usually `src/index.css`:
 
 The component uses Tailwind classes directly. No separate CSS file is required.
 
-## How To Run The Demo
+## How To Run This App
 
-This repository currently contains the reusable component source and a demo page. To run it in a React app, use a Vite React TypeScript shell.
+From the project root:
+
+```bash
+npm install
+npm run dev
+```
+
+Then open the Vite dev server URL:
+
+```txt
+http://127.0.0.1:5173/
+```
+
+The app entry point is `src/App.tsx`:
+
+```tsx
+import { ResearchArtifactViewerDemo } from "./examples/ResearchArtifactViewerDemo";
+
+export default function App() {
+  return <ResearchArtifactViewerDemo />;
+}
+```
+
+The demo page is `src/examples/ResearchArtifactViewerDemo.tsx`.
+
+## How To Use In Another App
+
+Copy the reusable component into any React 18 + TypeScript + Tailwind app.
 
 ### Option 1: Use An Existing React 18 App
 

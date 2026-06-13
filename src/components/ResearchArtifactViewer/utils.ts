@@ -27,22 +27,37 @@ export function createHeadingSlugger() {
   };
 }
 
-export function extractTableOfContents(markdown: string): TocItem[] {
-  const slugger = createHeadingSlugger();
-  const fencedBlockPattern = /```[\s\S]*?```|~~~[\s\S]*?~~~/g;
-  const withoutCodeBlocks = markdown.replace(fencedBlockPattern, "");
-  const headingPattern = /^(#{1,4})\s+(.+)$/gm;
-  const items: TocItem[] = [];
-  let match: RegExpExecArray | null;
+export function createHeadingId(value: string, lineNumber?: number) {
+  const base = slugify(value) || "section";
+  return typeof lineNumber === "number" && Number.isFinite(lineNumber)
+    ? `${base}-${lineNumber}`
+    : base;
+}
 
-  while ((match = headingPattern.exec(withoutCodeBlocks)) !== null) {
+export function extractTableOfContents(markdown: string): TocItem[] {
+  const items: TocItem[] = [];
+  let insideFence = false;
+
+  markdown.split(/\r?\n/).forEach((line, index) => {
+    if (/^\s*(```|~~~)/.test(line)) {
+      insideFence = !insideFence;
+      return;
+    }
+
+    if (insideFence) return;
+
+    const match = /^(#{1,4})\s+(.+)$/.exec(line);
+    if (!match) return;
+
     const text = stripMarkdown(match[2]);
+    const lineNumber = index + 1;
+
     items.push({
-      id: slugger(text),
+      id: createHeadingId(text, lineNumber),
       text,
       level: match[1].length,
     });
-  }
+  });
 
   return items;
 }

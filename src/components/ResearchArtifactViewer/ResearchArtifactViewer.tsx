@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { ChevronRight, X } from "lucide-react";
 
 import { ArtifactProgressBar } from "./ArtifactProgressBar";
@@ -100,6 +100,77 @@ function Drawer({
   );
 }
 
+function FullscreenRail({
+  label,
+  side,
+  onOpen,
+  scrollProgress,
+  onScrollSeek,
+}: {
+  label: string;
+  side: "left" | "right";
+  onOpen: () => void;
+  scrollProgress?: number;
+  onScrollSeek?: (progress: number) => void;
+}) {
+  const segmentCount = side === "left" ? 28 : 18;
+  const normalizedProgress =
+    typeof scrollProgress === "number"
+      ? Math.min(1, Math.max(0, scrollProgress))
+      : undefined;
+  const activeIndex =
+    typeof normalizedProgress === "number"
+      ? Math.round(normalizedProgress * (segmentCount - 1))
+      : -1;
+
+  function handleClick(event: MouseEvent<HTMLButtonElement>) {
+    onOpen();
+
+    if (!onScrollSeek) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const progress = Math.min(
+      1,
+      Math.max(0, (event.clientY - rect.top) / Math.max(1, rect.height)),
+    );
+    onScrollSeek(progress);
+  }
+
+  return (
+    <button
+      aria-label={label}
+      className={cn(
+        "absolute inset-y-0 z-20 hidden w-12 flex-col items-center justify-center gap-2 text-zinc-500 transition hover:text-zinc-200 focus:outline-none xl:flex",
+        side === "left" ? "left-0" : "right-0",
+      )}
+      onClick={handleClick}
+      onFocus={onOpen}
+      type="button"
+    >
+      {Array.from({ length: segmentCount }).map((_, index) => {
+        const segmentProgress = index / Math.max(1, segmentCount - 1);
+        const isActive = index === activeIndex;
+        const isRead =
+          typeof normalizedProgress === "number" &&
+          segmentProgress <= normalizedProgress;
+
+        return (
+          <span
+            className={cn(
+              "h-0.5 rounded-full bg-current transition-all duration-150",
+              side === "right" && "w-4 opacity-60",
+              side === "left" && !isActive && !isRead && "w-4 opacity-55",
+              side === "left" && isRead && !isActive && "w-5 text-zinc-300 opacity-80",
+              side === "left" && isActive && "w-7 text-zinc-50 opacity-100",
+            )}
+            key={index}
+          />
+        );
+      })}
+    </button>
+  );
+}
+
 export function ResearchArtifactViewer({
   title,
   artifactType,
@@ -121,12 +192,13 @@ export function ResearchArtifactViewer({
   const scrollTopBeforeFullscreen = useRef(0);
   const [isFullscreen, setIsFullscreen] = useState(defaultFullscreen);
   const [tocItems, setTocItems] = useState<TocItem[]>([]);
-  const [tocOpen, setTocOpen] = useState(true);
-  const [sourcesOpen, setSourcesOpen] = useState(true);
+  const [tocOpen, setTocOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<"toc" | "sources" | null>(null);
   const [highlightedCitationNumber, setHighlightedCitationNumber] = useState<number | null>(
     null,
   );
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   const hasToc = artifactType === "markdown" && showTableOfContents && tocItems.length > 0;
   const shouldShowSourcesPanel = showSourcesPanel && artifactType !== "citations";
@@ -148,10 +220,68 @@ export function ResearchArtifactViewer({
     sources.length,
   ]);
 
-  const scrollToHeading = useCallback((id: string) => {
-    const target = contentScrollRef.current?.querySelector<HTMLElement>(`[id="${id}"]`);
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    setMobileDrawer(null);
+  const scrollToHeading = useCallback(
+    (id: string) => {
+      const scrollContainer = contentScrollRef.current;
+      const target = Array.from(
+        scrollContainer?.querySelectorAll<HTMLElement>("[id]") ?? [],
+      ).find((element) => element.id === id);
+
+      if (!scrollContainer || !target) return;
+
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const offsetTop =
+        scrollContainer.scrollTop + targetRect.top - containerRect.top - 24;
+      const maxScrollTop = Math.max(
+        0,
+        scrollContainer.scrollHeight - scrollContainer.clientHeight,
+      );
+      const nextScrollTop = Math.min(maxScrollTop, Math.max(0, offsetTop));
+
+      scrollContainer.scrollTo({
+        top: nextScrollTop,
+        behavior: "smooth",
+      });
+      setScrollProgress(maxScrollTop === 0 ? 0 : nextScrollTop / maxScrollTop);
+      setMobileDrawer(null);
+      setTocOpen(false);
+    },
+    [],
+  );
+
+  const updateScrollProgress = useCallback(() => {
+    const scrollContainer = contentScrollRef.current;
+    if (!scrollContainer) {
+      setScrollProgress(0);
+      return;
+    }
+
+    const maxScrollTop = Math.max(
+      0,
+      scrollContainer.scrollHeight - scrollContainer.clientHeight,
+    );
+
+    setScrollProgress(
+      maxScrollTop === 0 ? 0 : scrollContainer.scrollTop / maxScrollTop,
+    );
+  }, []);
+
+  const scrollToProgress = useCallback((progress: number) => {
+    const scrollContainer = contentScrollRef.current;
+    if (!scrollContainer) return;
+
+    const maxScrollTop = Math.max(
+      0,
+      scrollContainer.scrollHeight - scrollContainer.clientHeight,
+    );
+    const nextScrollTop = Math.min(1, Math.max(0, progress)) * maxScrollTop;
+
+    scrollContainer.scrollTo({
+      top: nextScrollTop,
+      behavior: "smooth",
+    });
+    setScrollProgress(maxScrollTop === 0 ? 0 : nextScrollTop / maxScrollTop);
   }, []);
 
   const selectCitation = useCallback((citationNumber: number) => {
@@ -162,7 +292,14 @@ export function ResearchArtifactViewer({
 
   const toggleFullscreen = useCallback(() => {
     scrollTopBeforeFullscreen.current = contentScrollRef.current?.scrollTop ?? 0;
-    setIsFullscreen((value) => !value);
+    setIsFullscreen((value) => {
+      const nextValue = !value;
+      if (nextValue) {
+        setTocOpen(false);
+        setSourcesOpen(false);
+      }
+      return nextValue;
+    });
   }, []);
 
   const handleDownload = useCallback(() => {
@@ -240,8 +377,36 @@ export function ResearchArtifactViewer({
       if (contentScrollRef.current) {
         contentScrollRef.current.scrollTop = scrollTopBeforeFullscreen.current;
       }
+      updateScrollProgress();
     });
-  }, [isFullscreen]);
+  }, [isFullscreen, updateScrollProgress]);
+
+  useLayoutEffect(() => {
+    window.requestAnimationFrame(updateScrollProgress);
+  }, [artifactType, markdownContent, updateScrollProgress]);
+
+  useEffect(() => {
+    const scrollContainer = contentScrollRef.current;
+    if (!scrollContainer) return undefined;
+
+    const handleResize = () => updateScrollProgress();
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(handleResize);
+
+    window.addEventListener("resize", handleResize);
+    resizeObserver?.observe(scrollContainer);
+
+    if (scrollContainer.firstElementChild) {
+      resizeObserver?.observe(scrollContainer.firstElementChild);
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      resizeObserver?.disconnect();
+    };
+  }, [isFullscreen, updateScrollProgress]);
 
   const mainContent = (() => {
     if (artifactType === "pdf") {
@@ -282,14 +447,14 @@ export function ResearchArtifactViewer({
     );
   })();
 
-  return (
+  const viewer = (
     <section
       className={cn(
-        "isolate flex min-h-[620px] flex-col overflow-hidden bg-zinc-950 text-zinc-100 shadow-2xl shadow-black/30",
+        "isolate flex min-h-[620px] flex-col overflow-hidden text-zinc-100 shadow-2xl shadow-black/30",
         isFullscreen
-          ? "fixed inset-0 z-[9997] h-screen w-screen rounded-none"
-          : "relative rounded-2xl border border-zinc-800",
-        className,
+          ? "fixed inset-0 z-[9997] h-screen w-screen rounded-none bg-[#121212]"
+          : "relative rounded-[1.15rem] border border-white/15 bg-[#171717]",
+        isFullscreen && className,
       )}
     >
       <ArtifactToolbar
@@ -299,48 +464,61 @@ export function ResearchArtifactViewer({
         onDownload={handleDownload}
         onToggleFullscreen={toggleFullscreen}
         onToggleSources={() => {
-          setSourcesOpen((value) => !value);
-          setMobileDrawer((value) => (value === "sources" ? null : "sources"));
+          if (isFullscreen) {
+            setSourcesOpen((value) => !value);
+          } else {
+            setMobileDrawer((value) => (value === "sources" ? null : "sources"));
+          }
         }}
         onToggleToc={() => {
-          setTocOpen((value) => !value);
-          setMobileDrawer((value) => (value === "toc" ? null : "toc"));
+          if (isFullscreen) {
+            setTocOpen((value) => !value);
+          } else {
+            setMobileDrawer((value) => (value === "toc" ? null : "toc"));
+          }
         }}
         showSourcesButton={shouldShowSourcesPanel}
         showTocButton={hasToc}
         title={title}
+        variant={isFullscreen ? "fullscreen" : "card"}
       />
-
-      <ArtifactProgressBar progress={progress} />
 
       <div
         className={cn(
           "grid min-h-0 flex-1 grid-cols-1",
-          hasToc && tocOpen && shouldShowSourcesPanel && sourcesOpen
+          !isFullscreen && hasToc && tocOpen && shouldShowSourcesPanel && sourcesOpen
             ? "xl:grid-cols-[18rem_minmax(0,1fr)_22rem]"
             : "",
-          hasToc && tocOpen && (!shouldShowSourcesPanel || !sourcesOpen)
+          !isFullscreen && hasToc && tocOpen && (!shouldShowSourcesPanel || !sourcesOpen)
             ? "xl:grid-cols-[18rem_minmax(0,1fr)]"
             : "",
-          (!hasToc || !tocOpen) && shouldShowSourcesPanel && sourcesOpen
+          !isFullscreen && (!hasToc || !tocOpen) && shouldShowSourcesPanel && sourcesOpen
             ? "xl:grid-cols-[minmax(0,1fr)_22rem]"
             : "",
         )}
       >
-        {hasToc && tocOpen && (
+        {!isFullscreen && hasToc && tocOpen && (
           <aside className="hidden min-h-0 border-r border-zinc-800 bg-zinc-950/90 xl:block">
             <TableOfContents items={tocItems} onSelect={scrollToHeading} />
           </aside>
         )}
 
         <main
-          className="min-h-0 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.06),transparent_32rem)]"
+          className={cn(
+            "min-h-0 overflow-y-auto",
+            isFullscreen
+              ? "bg-[#121212] pt-12"
+              : "bg-[#171717] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.025),transparent_30rem)]",
+          )}
+          onScroll={updateScrollProgress}
           ref={contentScrollRef}
         >
-          <div className="min-h-full rounded-none bg-zinc-950/35">{mainContent}</div>
+          <div className={cn("min-h-full", isFullscreen ? "bg-[#121212]" : "bg-[#171717]")}>
+            {mainContent}
+          </div>
         </main>
 
-        {shouldShowSourcesPanel && sourcesOpen && (
+        {!isFullscreen && shouldShowSourcesPanel && sourcesOpen && (
           <div className="hidden min-h-0 xl:block">
             <CitationSourcePanel
               highlightedCitationNumber={highlightedCitationNumber}
@@ -352,6 +530,53 @@ export function ResearchArtifactViewer({
           </div>
         )}
       </div>
+
+      {isFullscreen && hasToc && (
+        <div className="group/toc absolute bottom-10 left-0 top-20 z-30 hidden w-[22rem] xl:block">
+          <FullscreenRail
+            label="Show table of contents"
+            onOpen={() => setTocOpen(true)}
+            onScrollSeek={scrollToProgress}
+            scrollProgress={scrollProgress}
+            side="left"
+          />
+          <aside
+            className={cn(
+              "pointer-events-none absolute bottom-10 left-12 top-8 w-72 overflow-hidden rounded-2xl border border-white/15 bg-[#171717]/95 opacity-0 shadow-2xl shadow-black/50 backdrop-blur transition duration-150 group-hover/toc:pointer-events-auto group-hover/toc:opacity-100 group-focus-within/toc:pointer-events-auto group-focus-within/toc:opacity-100",
+              tocOpen && "pointer-events-auto opacity-100",
+            )}
+            onMouseLeave={() => setTocOpen(false)}
+          >
+            <TableOfContents items={tocItems} onSelect={scrollToHeading} />
+          </aside>
+        </div>
+      )}
+
+      {isFullscreen && shouldShowSourcesPanel && (
+        <div className="group/sources absolute bottom-0 right-0 top-0 z-30 hidden w-[27rem] xl:block">
+          <FullscreenRail
+            label="Show sources"
+            onOpen={() => setSourcesOpen(true)}
+            side="right"
+          />
+          <aside
+            className={cn(
+              "pointer-events-none absolute bottom-0 right-0 top-0 w-[24rem] translate-x-3 border-l border-white/10 bg-[#171717] opacity-0 shadow-2xl shadow-black/50 transition duration-150 group-hover/sources:pointer-events-auto group-hover/sources:translate-x-0 group-hover/sources:opacity-100 group-focus-within/sources:pointer-events-auto group-focus-within/sources:translate-x-0 group-focus-within/sources:opacity-100",
+              sourcesOpen && "pointer-events-auto translate-x-0 opacity-100",
+            )}
+            onMouseLeave={() => setSourcesOpen(false)}
+          >
+            <CitationSourcePanel
+              highlightedCitationNumber={highlightedCitationNumber}
+              onCitationSelect={selectCitation}
+              onClose={() => setSourcesOpen(false)}
+              progress={progress}
+              promptHistory={promptHistory}
+              sources={sources}
+            />
+          </aside>
+        </div>
+      )}
 
       {mobileDrawer === "toc" && hasToc && (
         <Drawer title="Table of contents" onClose={() => setMobileDrawer(null)}>
@@ -373,5 +598,14 @@ export function ResearchArtifactViewer({
         </Drawer>
       )}
     </section>
+  );
+
+  if (isFullscreen) return viewer;
+
+  return (
+    <div className={cn("w-full", className)}>
+      <ArtifactProgressBar progress={progress} variant="compact" />
+      {viewer}
+    </div>
   );
 }

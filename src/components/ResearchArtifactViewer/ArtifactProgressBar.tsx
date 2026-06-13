@@ -12,6 +12,7 @@ import { cn, formatProgressMessage } from "./utils";
 
 interface ArtifactProgressBarProps {
   progress?: ArtifactProgress;
+  variant?: "bar" | "compact";
 }
 
 const statusTone: Record<ArtifactStatus, string> = {
@@ -35,7 +36,10 @@ function StatusIcon({ status }: { status: ArtifactStatus }) {
   return <Radio className={className} />;
 }
 
-export function ArtifactProgressBar({ progress }: ArtifactProgressBarProps) {
+export function ArtifactProgressBar({
+  progress,
+  variant = "bar",
+}: ArtifactProgressBarProps) {
   const status = progress?.status ?? "idle";
   const percent =
     typeof progress?.percent === "number"
@@ -44,6 +48,41 @@ export function ArtifactProgressBar({ progress }: ArtifactProgressBarProps) {
   const isIndeterminate =
     percent === undefined &&
     (status === "loading" || status === "searching" || status === "generating");
+
+  if (variant === "compact") {
+    return (
+      <section
+        aria-live={status === "error" ? "assertive" : "polite"}
+        className="mb-3 flex flex-col gap-2 px-0 text-sm text-zinc-100"
+      >
+        <div className="flex items-center gap-2">
+          {status !== "completed" && <StatusIcon status={status} />}
+          <span className={cn("font-medium", status === "completed" && "text-zinc-100")}>
+            {formatProgressMessage(progress)}
+          </span>
+        </div>
+
+        {(typeof percent === "number" && percent < 100) || isIndeterminate ? (
+          <div
+            aria-label="Artifact progress"
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={typeof percent === "number" ? percent : undefined}
+            className="h-1 overflow-hidden rounded-full bg-white/10"
+            role="progressbar"
+          >
+            <div
+              className={cn(
+                "h-full rounded-full bg-white/70 transition-all duration-500",
+                isIndeterminate && "w-1/3 animate-pulse",
+              )}
+              style={typeof percent === "number" ? { width: `${percent}%` } : undefined}
+            />
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section
