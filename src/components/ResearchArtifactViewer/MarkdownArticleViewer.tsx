@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { MermaidDiagramViewer } from "./MermaidDiagramViewer";
 import type { TocItem } from "./types";
 import {
   cn,
@@ -253,6 +254,10 @@ export function MarkdownArticleViewer({
             </td>
           ),
           code: ({ inline, className, children, ...props }: any) => {
+            const languageMatch = /language-(\w+)/.exec(className ?? "");
+            const language = languageMatch?.[1]?.toLowerCase();
+            const codeValue = String(children).replace(/\n$/, "");
+
             if (inline) {
               return (
                 <code
@@ -262,6 +267,10 @@ export function MarkdownArticleViewer({
                   {children}
                 </code>
               );
+            }
+
+            if (language === "mermaid") {
+              return <MermaidDiagramViewer chart={codeValue} />;
             }
 
             return (

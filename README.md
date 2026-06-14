@@ -2,7 +2,7 @@
 
 Production-ready React 18, TypeScript, and Tailwind CSS component for viewing research artifacts in a dark, three-panel research-reader layout.
 
-The component supports Markdown articles, PDFs, DOCX previews, prompt history timelines, citation/source browsing, download actions, fullscreen mode, and progress/status display. It has no backend dependency. All content is passed through props.
+The component supports Markdown articles, Mermaid diagrams, PDFs, DOCX previews, prompt history timelines, citation/source browsing, download actions, fullscreen mode, and progress/status display. It has no backend dependency. All content is passed through props.
 
 ## Quick Start
 
@@ -45,6 +45,7 @@ src/
       CitationSourcePanel.tsx
       DocxArtifactViewer.tsx
       MarkdownArticleViewer.tsx
+      MermaidDiagramViewer.tsx
       PdfArtifactViewer.tsx
       PromptHistoryViewer.tsx
       ResearchArtifactViewer.tsx
@@ -58,6 +59,7 @@ src/
 ## Features
 
 - Markdown article viewer with GitHub-flavored Markdown.
+- Mermaid diagram viewer for `mermaid` fenced code blocks.
 - Auto-generated table of contents from Markdown headings.
 - Clickable inline citation badges such as `[1]`, `[2]`, `[3]`.
 - Right-side sources, citations, and activity panel.
@@ -83,7 +85,7 @@ npm install
 The equivalent manual install commands are:
 
 ```bash
-npm install react@18 react-dom@18 lucide-react react-markdown remark-gfm pdfjs-dist mammoth dompurify
+npm install react@18 react-dom@18 lucide-react react-markdown remark-gfm mermaid pdfjs-dist mammoth dompurify
 npm install -D @vitejs/plugin-react vite typescript @types/react @types/react-dom tailwindcss postcss autoprefixer
 ```
 
@@ -156,7 +158,7 @@ Copy the reusable component into any React 18 + TypeScript + Tailwind app.
 3. Install dependencies:
 
 ```bash
-npm install lucide-react react-markdown remark-gfm pdfjs-dist mammoth dompurify
+npm install lucide-react react-markdown remark-gfm mermaid pdfjs-dist mammoth dompurify
 ```
 
 4. Render the demo:
@@ -181,7 +183,7 @@ npm run dev
 npm create vite@latest research-artifact-viewer-demo -- --template react-ts
 cd research-artifact-viewer-demo
 npm install
-npm install lucide-react react-markdown remark-gfm pdfjs-dist mammoth dompurify
+npm install lucide-react react-markdown remark-gfm mermaid pdfjs-dist mammoth dompurify
 npm install -D tailwindcss postcss autoprefixer
 npx tailwindcss init -p
 ```
@@ -489,7 +491,9 @@ When `percent` is provided, the progress bar shows a determinate value. For acti
 
 `ResearchArtifactViewer.tsx` is the orchestration layer. It owns fullscreen state, drawer state, citation highlighting, table-of-contents state, download behavior, and Escape key handling.
 
-`MarkdownArticleViewer.tsx` renders Markdown with `react-markdown` and `remark-gfm`. It extracts headings for the table of contents and converts citation text markers into accessible buttons.
+`MarkdownArticleViewer.tsx` renders Markdown with `react-markdown` and `remark-gfm`. It extracts headings for the table of contents, converts citation text markers into accessible buttons, and routes Mermaid fenced code blocks to the diagram viewer.
+
+`MermaidDiagramViewer.tsx` renders Mermaid diagrams with image/code modes, copy, render error handling, and fullscreen controls.
 
 `CitationSourcePanel.tsx` renders the right evidence panel. It provides Sources, Citations, and Activity tabs, source filtering, grouping by domain, source cards, and citation highlighting.
 

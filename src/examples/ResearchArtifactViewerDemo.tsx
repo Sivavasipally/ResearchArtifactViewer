@@ -108,6 +108,18 @@ The blueprint separates the document update into five coordinated phases. Each p
 | Execution | Apply edits with checkpoints | Updated draft |
 | Verification | Compare before and after states | Review summary |
 
+\`\`\`mermaid
+flowchart LR
+  Grounding[Grounding] --> Plausibility[Plausibility]
+  Plausibility --> Benchmark[Benchmark]
+  Benchmark --> Compliance[Compliance]
+  Compliance --> Judge[Judge]
+  Judge --> Risk{Risky?}
+  Risk -- No --> Final[Final Answer]
+  Risk -- Yes --> Human[Human Input]
+  Human --> Final
+\`\`\`
+
 ## Architecture Principles
 
 ### Preserve Document Intent
